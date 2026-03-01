@@ -1,4 +1,5 @@
 # ⚡ TetraLatency: The LLM Performance Command Center
+<img width="1137" height="1005" alt="image" src="https://github.com/user-attachments/assets/0105a06f-a23c-410b-a6d0-4b934521c63b" />
 
 **TetraLatency** (`tlate`) is a high-performance terminal dashboard designed for developers who demand the absolute lowest latency from their AI agents. It provides a real-time, concurrent "Inference Matrix" to scout, benchmark, and compare LLM providers in seconds.
 
