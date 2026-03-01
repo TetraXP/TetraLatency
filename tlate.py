@@ -334,6 +334,33 @@ PROVIDER_INTERVALS = {
     "openrouter": 60,
 }
 
+CACHE_FILE = os.path.expanduser("~/.local/share/opencode/tlate_cache.json")
+
+def load_cache():
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, "r") as f:
+                data = json.load(f)
+            STATUS.update(data.get("status", {}))
+            LAST_PING.update(data.get("last_ping", {}))
+            lat_data = data.get("latencies", {})
+            for k, v in lat_data.items():
+                if k not in LATENCIES: LATENCIES[k] = deque(maxlen=5)
+                for lat in v: LATENCIES[k].append(lat)
+        except Exception: pass
+
+def save_cache():
+    try:
+        lat_data = {k: list(v) for k, v in LATENCIES.items()}
+        data = {
+            "status": STATUS,
+            "last_ping": LAST_PING,
+            "latencies": lat_data
+        }
+        with open(CACHE_FILE, "w") as f:
+            json.dump(data, f)
+    except Exception: pass
+
 def measure_loop(models, keys):
     def ping(m):
         m_id = m["id"]
@@ -383,6 +410,7 @@ def measure_loop(models, keys):
             except Exception:
                 return m_id, None, "Error"
     
+    load_cache()
     while True:
         now = time.time()
         with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WORKERS) as executor:
@@ -400,6 +428,7 @@ def measure_loop(models, keys):
                     time.sleep(0.04) 
                     
         time.sleep(1) # Prevent hot-looping when everything is rate limited
+        save_cache()
 
 def ping_and_update(fn, m):
     m_id, lat, stat = fn(m)
