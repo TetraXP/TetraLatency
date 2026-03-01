@@ -325,13 +325,13 @@ LAST_PING = {}
 # Define how many seconds to wait before re-pinging a model based on provider limits
 PROVIDER_INTERVALS = {
     "google": 86400,      # Ping at most once per 24 hours to deeply protect ultra-low RPD limits
-    "cohere": 3600,       # Ping at most once per hour to save monthly Trial limit (1k/mo)
-    "cerebras": 120,      # Generous RPM, wait 2 mins
-    "groq": 120,          # High RPM, wait 2 mins
-    "codestral": 120,
-    "mistral": 120,
-    "nvidia": 60,         # Very high limits
-    "openrouter": 60,
+    "cohere": 86400,      # Ping at most once per 24 hours to save monthly Trial limit (1k/mo)
+    "cerebras": 3600,     # 1 hour
+    "groq": 3600,         # 1 hour
+    "codestral": 3600,    # 1 hour
+    "mistral": 3600,      # 1 hour
+    "nvidia": 3600,       # 1 hour
+    "openrouter": 3600,   # 1 hour
 }
 
 CACHE_FILE = os.path.expanduser("~/.local/share/tetralatency/tlate_cache.json")
@@ -474,7 +474,7 @@ def main(stdscr, models, keys):
     t = threading.Thread(target=measure_loop, args=(models, keys), daemon=True)
     t.start()
 
-    status_msg = "Up/Down: Navigate | Enter: Set Opencode Model | Click Column: Sort | ESC: Quit"
+    status_msg = "Up/Down: Navigate | Enter: Set Opencode Model | F5: Force Ping | ESC: Quit"
 
     id_w, pv_w, name_w, p_w, ctx_w, mod_w, lat_w, bar_w = 33, 6, 18, 10, 10, 6, 10, 14
 
@@ -593,6 +593,12 @@ def main(stdscr, models, keys):
         if key in (3, 27): break  # 3=Ctrl+C, 27=ESC
         elif key == curses.KEY_UP: selected_idx = max(0, selected_idx - 1)
         elif key == curses.KEY_DOWN: selected_idx = min(len(all_models) - 1, selected_idx + 1)
+        elif key == curses.KEY_F5:
+            if all_models and selected_idx < len(all_models):
+                sel_m = all_models[selected_idx]
+                m_id = sel_m["id"]
+                LAST_PING[m_id] = 0 # Force a re-ping next loop
+                status_msg = f"Forcing network ping for [{sel_m['prov']}/{sel_m['id']}]..."
         elif key == curses.KEY_BACKSPACE or key == 127 or key == 8:
             search_query = search_query[:-1]
             selected_idx = 0
