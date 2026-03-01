@@ -54,10 +54,15 @@ I personally use **TetraLatency** as the primary control plane for my local LLM 
 
 Alternatively, you can manually export your keys in your `.bashrc` or `.zshrc`:
 ```bash
-export OPENROUTER_API_KEY="your_key"
+# Core Providers
 export NVIDIA_API_KEY="your_key"
+export OPENROUTER_API_KEY="your_key"
 export GROQ_API_KEY="your_key"
-# ...and so on
+export GEMINI_API_KEY="your_key"
+export CEREBRAS_API_KEY="your_key"
+export MISTRAL_API_KEY="your_key"
+export CODESTRAL_API_KEY="your_key"
+export COHERE_API_KEY="your_key"
 ```
 
 ## ⌨️ Controls
