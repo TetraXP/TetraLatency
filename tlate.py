@@ -775,7 +775,6 @@ if __name__ == "__main__":
         print("Error fetching models from APIs.")
         sys.exit(1)
 
-    print("Loading AI Matrix...")
     os.environ.setdefault("ESCDELAY", "25")
     try:
         curses.wrapper(main, m, k)
