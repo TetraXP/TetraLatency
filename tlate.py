@@ -383,7 +383,7 @@ def main(stdscr, models, keys):
 
     status_msg = "Up/Down: Navigate | Enter: Set Opencode Model | Click Column: Sort | ESC: Quit"
 
-    id_w, pv_w, name_w, p_w, ctx_w, lat_w, bar_w = 33, 6, 18, 8, 8, 10, 14
+    id_w, pv_w, name_w, p_w, ctx_w, lat_w, bar_w = 33, 6, 18, 10, 10, 10, 14
 
     search_query = ""
 
