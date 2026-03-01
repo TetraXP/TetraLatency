@@ -320,6 +320,19 @@ def set_model_in_opencode(model_id, prov):
 
 LATENCIES = {} 
 STATUS = {}
+LAST_PING = {}
+
+# Define how many seconds to wait before re-pinging a model based on provider limits
+PROVIDER_INTERVALS = {
+    "google": 3600,       # Ping at most once per hour to save ultra-low RPD (50)
+    "cohere": 3600,       # Ping at most once per hour to save monthly Trial limit (1k/mo)
+    "cerebras": 120,      # Generous RPM, wait 2 mins
+    "groq": 120,          # High RPM, wait 2 mins
+    "codestral": 120,
+    "mistral": 120,
+    "nvidia": 60,         # Very high limits
+    "openrouter": 60,
+}
 
 def measure_loop(models, keys):
     def ping(m):
@@ -371,10 +384,22 @@ def measure_loop(models, keys):
                 return m_id, None, "Error"
     
     while True:
+        now = time.time()
         with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WORKERS) as executor:
             for m in models:
-                executor.submit(ping_and_update, ping, m)
-                time.sleep(0.04) 
+                m_id = m["id"]
+                prov = m["prov"]
+                
+                # Smart Rate Limiting: Check if we are allowed to ping this model again
+                last = LAST_PING.get(m_id, 0)
+                interval = PROVIDER_INTERVALS.get(prov, 60)
+                
+                if now - last >= interval:
+                    LAST_PING[m_id] = now
+                    executor.submit(ping_and_update, ping, m)
+                    time.sleep(0.04) 
+                    
+        time.sleep(1) # Prevent hot-looping when everything is rate limited
 
 def ping_and_update(fn, m):
     m_id, lat, stat = fn(m)
