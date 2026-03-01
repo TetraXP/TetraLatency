@@ -383,7 +383,7 @@ def main(stdscr, models, keys):
 
     status_msg = "Up/Down: Navigate | Enter: Set Opencode Model | Click Column: Sort | ESC: Quit"
 
-    id_w, pv_w, name_w, p_w, ctx_w, lat_w, bar_w = 33, 4, 18, 8, 8, 10, 14
+    id_w, pv_w, name_w, p_w, ctx_w, lat_w, bar_w = 33, 6, 18, 8, 8, 10, 14
 
     search_query = ""
 
@@ -631,7 +631,8 @@ def main(stdscr, models, keys):
             c_str = item["context"].center(ctx_w)[:ctx_w]
             
             px = item["prov"]
-            pv_str = " NV " if px == "nvidia" else (" GG " if px == "google" else (" MS " if px == "mistral" else (" CS " if px == "codestral" else (" CB " if px == "cerebras" else (" CO " if px == "cohere" else (" GQ " if px == "groq" else " OR "))))))
+            p_code = "NV" if px == "nvidia" else ("GG" if px == "google" else ("MS" if px == "mistral" else ("CS" if px == "codestral" else ("CB" if px == "cerebras" else ("CO" if px == "cohere" else ("GQ" if px == "groq" else "OR"))))))
+            pv_str = p_code.center(pv_w)[:pv_w]
             
             row_str = f" {item['id'].ljust(id_w)[:id_w]} │{pv_str}│ {item['name'].ljust(name_w)[:name_w]} │ {p_str} │ {c_str} │ {lat_str.rjust(lat_w)[:lat_w]} │ {bar}"
             row_str = row_str.ljust(width)[:width]
