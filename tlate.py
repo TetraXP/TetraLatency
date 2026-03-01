@@ -166,6 +166,12 @@ def get_models(keys):
                 if r.status_code == 200:
                     for m in r.json().get("models", []):
                         name_id = m["name"].replace("models/", "")
+                        
+                        # Filter out non-LLM noise to preserve the 15 RPM rate limit
+                        ni = name_id.lower()
+                        if any(x in ni for x in ["imagen", "veo", "embedding", "audio", "tts", "aqa", "bison", "gecko", "vision"]):
+                            continue
+                            
                         p_str, ctx, val = parse_model_stats(name_id)
                         ctx_lim = m.get("inputTokenLimit", 8192)
                         ctx = f"{int(ctx_lim/1000)}K" if ctx_lim >= 1000 else str(ctx_lim)
@@ -326,11 +332,16 @@ def measure_loop(models, keys):
         if prov == "google":
             try:
                 payload = {"contents": [{"parts":[{"text": "Hi"}]}]}
-                res = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m_id}:generateContent?key={api_key}", json=payload, timeout=8)
+                res = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m_id}:generateContent?key={api_key}", json=payload, timeout=15)
                 lat = (time.time() - start) * 1000
                 if res.status_code == 200: return m_id, lat, "OK"
                 else: return m_id, None, f"Err {res.status_code}"
-            except: return m_id, None, "Timeout"
+            except requests.exceptions.Timeout:
+                return m_id, None, "Timeout"
+            except requests.exceptions.RequestException as e:
+                return m_id, None, "Net Error"
+            except Exception:
+                return m_id, None, "Error"
         else:
             if prov == "nvidia": pt = "https://integrate.api.nvidia.com/v1/chat/completions"
             elif prov == "mistral": pt = "https://api.mistral.ai/v1/chat/completions"
