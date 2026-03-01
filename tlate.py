@@ -101,6 +101,14 @@ def format_model_name(model_id):
     if len(name) > 22: name = name[:19] + "..."
     return name.title()
 
+def get_model_modality(model_id):
+    m = model_id.lower()
+    if "gemini" in m and ("1.5" in m or "flash" in m or "pro" in m): return "T,I,V"
+    if "gpt-4o" in m: return "T,I"
+    if "claude-3" in m: return "T,I"
+    if any(x in m for x in ["vision", "vl", "pixtral", "llava", "paligemma"]): return "T,I"
+    return "T"
+
 def get_models(keys):
     models = []
     
@@ -402,7 +410,7 @@ def main(stdscr, models, keys):
 
     status_msg = "Up/Down: Navigate | Enter: Set Opencode Model | Click Column: Sort | ESC: Quit"
 
-    id_w, pv_w, name_w, p_w, ctx_w, lat_w, bar_w = 33, 6, 18, 10, 10, 10, 14
+    id_w, pv_w, name_w, p_w, ctx_w, mod_w, lat_w, bar_w = 33, 6, 18, 10, 10, 6, 10, 14
 
     search_query = ""
 
@@ -443,7 +451,7 @@ def main(stdscr, models, keys):
                 "id": m_id, "name": m["name"], "params": m["params"], 
                 "context": m["context"], "score": m["score"], 
                 "lat": avg_lat, "stat": stat, "prov": m["prov"],
-                "desc": m["desc"]
+                "desc": m["desc"], "mod": get_model_modality(m_id)
             }
             
             if search_query:
@@ -506,6 +514,7 @@ def main(stdscr, models, keys):
                 return float(k[:-1]) if "K" in k else 0
             if sort_col == "Name": return x["name"]
             if sort_col == "Prv": return x["prov"]
+            if sort_col == "Inp": return x["mod"]
             return x["id"]
             
         active_models.sort(key=s_key, reverse=sort_desc)
@@ -561,11 +570,12 @@ def main(stdscr, models, keys):
                         elif mx < cum_w + id_w + pv_w + name_w + 4: new_sort = "Name"
                         elif mx < cum_w + id_w + pv_w + name_w + p_w + 7: new_sort = "Params"
                         elif mx < cum_w + id_w + pv_w + name_w + p_w + ctx_w + 10: new_sort = "Context"
-                        elif mx < cum_w + id_w + pv_w + name_w + p_w + ctx_w + lat_w + 13: new_sort = "Latency"
+                        elif mx < cum_w + id_w + pv_w + name_w + p_w + ctx_w + mod_w + 13: new_sort = "Inp"
+                        elif mx < cum_w + id_w + pv_w + name_w + p_w + ctx_w + mod_w + lat_w + 16: new_sort = "Latency"
                         else: new_sort = "Status"
                         
                         if sort_col == new_sort: sort_desc = not sort_desc
-                        else: sort_col = new_sort; sort_desc = (new_sort in ["Params", "Context"])
+                        else: sort_col = new_sort; sort_desc = (new_sort in ["Params", "Context", "Inp"])
                     elif my >= 7 and my < height - 2:
                         clicked_idx = scroll_offset + (my - 7)
                         if clicked_idx < len(all_models): selected_idx = clicked_idx
@@ -616,7 +626,7 @@ def main(stdscr, models, keys):
         def f_head(col):
             arr = "↓" if sort_desc else "↑"
             text = f"{col} {arr}" if sort_col == col else col
-            w = {"ID": id_w, "Prv": pv_w, "Name": name_w, "Params": p_w, "Context": ctx_w, "Latency": lat_w, "Status": bar_w}.get(col, id_w)
+            w = {"ID": id_w, "Prv": pv_w, "Name": name_w, "Params": p_w, "Context": ctx_w, "Inp": mod_w, "Latency": lat_w, "Status": bar_w}.get(col, id_w)
             return text.center(w)
 
         # Header Columns
@@ -625,10 +635,11 @@ def main(stdscr, models, keys):
         H_NM = f_head("Name").ljust(name_w)[:name_w]
         H_P  = f_head("Params").center(p_w)[:p_w]
         H_C  = f_head("Context").center(ctx_w)[:ctx_w]
+        H_M  = f_head("Inp").center(mod_w)[:mod_w]
         H_L  = f_head("Latency").rjust(lat_w)[:lat_w]
         H_B  = f_head("Status").center(bar_w)[:bar_w]
         
-        header_str = f" {H_ID} │{H_PV}│ {H_NM} │ {H_P} │ {H_C} │ {H_L} │ {H_B}"
+        header_str = f" {H_ID} │{H_PV}│ {H_NM} │ {H_P} │ {H_C} │ {H_M} │ {H_L} │ {H_B}"
         stdscr.addstr(5, 0, header_str.ljust(width)[:width], curses.color_pair(5) | curses.A_BOLD)
         
         stdscr.hline(6, 0, curses.ACS_HLINE, width, curses.color_pair(1))
@@ -648,12 +659,13 @@ def main(stdscr, models, keys):
             
             p_str = item["params"].center(p_w)[:p_w]
             c_str = item["context"].center(ctx_w)[:ctx_w]
+            m_str = item["mod"].center(mod_w)[:mod_w]
             
             px = item["prov"]
             p_code = "NV" if px == "nvidia" else ("GG" if px == "google" else ("MS" if px == "mistral" else ("CS" if px == "codestral" else ("CB" if px == "cerebras" else ("CO" if px == "cohere" else ("GQ" if px == "groq" else "OR"))))))
             pv_str = p_code.center(pv_w)[:pv_w]
             
-            row_str = f" {item['id'].ljust(id_w)[:id_w]} │{pv_str}│ {item['name'].ljust(name_w)[:name_w]} │ {p_str} │ {c_str} │ {lat_str.rjust(lat_w)[:lat_w]} │ {bar}"
+            row_str = f" {item['id'].ljust(id_w)[:id_w]} │{pv_str}│ {item['name'].ljust(name_w)[:name_w]} │ {p_str} │ {c_str} │ {m_str} │ {lat_str.rjust(lat_w)[:lat_w]} │ {bar}"
             row_str = row_str.ljust(width)[:width]
 
             if idx == selected_idx:
@@ -686,7 +698,7 @@ def main(stdscr, models, keys):
                 # Colorize the speed bar blocks to make it dynamic
                 if item['stat'] == "OK":
                     bar_c = curses.color_pair(2) if lat < 300 else (curses.color_pair(5) if lat < 800 else curses.color_pair(3))
-                    bar_start = 17 + id_w + pv_w + name_w + p_w + ctx_w + lat_w
+                    bar_start = 20 + id_w + pv_w + name_w + p_w + ctx_w + mod_w + lat_w
                     try: stdscr.chgat(7+i, bar_start, bar_w, bar_c | curses.A_BOLD)
                     except: pass
                     
