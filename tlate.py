@@ -104,179 +104,193 @@ def format_model_name(model_id):
 def get_models(keys):
     models = []
     
-    # 1. NVIDIA
-    if "nvidia" in keys:
-        try:
-            headers = {"Authorization": f"Bearer {keys['nvidia']}"}
-            res = requests.get("https://integrate.api.nvidia.com/v1/models", headers=headers, timeout=15)
-            if res.status_code == 200:
-                for m in res.json()["data"]:
-                    p_str, ctx, val = parse_model_stats(m["id"])
-                    models.append({
-                        "id": m["id"], "name": format_model_name(m["id"]), 
-                        "params": p_str, "context": ctx, "score": val, 
-                        "lat": float('inf'), "stat": "Pending...", "prov": "nvidia",
-                        "desc": "Official NVIDIA NIM Endpoint for this model."
-                    })
-        except Exception: pass
+    def fetch_nvidia():
+        res = []
+        if "nvidia" in keys:
+            try:
+                headers = {"Authorization": f"Bearer {keys['nvidia']}"}
+                r = requests.get("https://integrate.api.nvidia.com/v1/models", headers=headers, timeout=15)
+                if r.status_code == 200:
+                    for m in r.json()["data"]:
+                        p_str, ctx, val = parse_model_stats(m["id"])
+                        res.append({
+                            "id": m["id"], "name": format_model_name(m["id"]), 
+                            "params": p_str, "context": ctx, "score": val, 
+                            "lat": float('inf'), "stat": "Pending...", "prov": "nvidia",
+                            "desc": "Official NVIDIA NIM Endpoint for this model."
+                        })
+            except Exception: pass
+        return res
+
+    def fetch_openrouter():
+        res = []
+        if "openrouter" in keys:
+            try:
+                headers = {"Authorization": f"Bearer {keys['openrouter']}"}
+                r = requests.get("https://openrouter.ai/api/v1/models", headers=headers, timeout=15)
+                if r.status_code == 200:
+                    for m in r.json()["data"]:
+                        pricing = m.get("pricing") or {}
+                        try:
+                            if any(float(v or 0) > 0 for v in pricing.values()): continue
+                        except: pass
+                        p_str, _, val = parse_model_stats(m["id"])
+                        ctx_len = m.get("context_length", 8192)
+                        ctx = f"{ctx_len//1000}K" if ctx_len >= 1000 else str(ctx_len)
+                        name = m.get("name", m["id"].split('/')[-1])
+                        if len(name) > 22: name = name[:19] + "..."
+                        desc = m.get("description", "")
+                        if not desc: desc = "OpenRouter hosted API endpoint."
+                        res.append({
+                            "id": m["id"], "name": name, "params": p_str, 
+                            "context": ctx, "score": val, "lat": float('inf'), 
+                            "stat": "Pending...", "prov": "openrouter",
+                            "desc": desc
+                        })
+            except Exception: pass
+        return res
+
+    def fetch_google():
+        res = []
+        if "google" in keys:
+            try:
+                r = requests.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={keys['google']}", timeout=15)
+                if r.status_code == 200:
+                    for m in r.json().get("models", []):
+                        name_id = m["name"].replace("models/", "")
+                        p_str, ctx, val = parse_model_stats(name_id)
+                        ctx_lim = m.get("inputTokenLimit", 8192)
+                        ctx = f"{int(ctx_lim/1000)}K" if ctx_lim >= 1000 else str(ctx_lim)
+                        desc = m.get("description", "Official Google Gemini API endpoint.")
+                        if "flash" in name_id.lower():
+                            desc += " | [FREE LIMITS]: 15 RPM, 1M TPM, 1,500 RPD."
+                        elif "pro" in name_id.lower():
+                            desc += " | [FREE LIMITS]: 2 RPM, 32K TPM, 50 RPD."
+                        res.append({
+                            "id": name_id, "name": m.get("displayName", name_id), 
+                            "params": p_str, "context": ctx, "score": val, 
+                            "lat": float('inf'), "stat": "Pending...", "prov": "google",
+                            "desc": desc
+                        })
+            except Exception: pass
+        return res
+
+    def fetch_mistral():
+        res = []
+        if "mistral" in keys:
+            try:
+                headers = {"Authorization": f"Bearer {keys['mistral']}"}
+                r = requests.get("https://api.mistral.ai/v1/models", headers=headers, timeout=15)
+                if r.status_code == 200:
+                    for m in r.json().get("data", []):
+                        model_id = m["id"]
+                        if any(x in model_id.lower() for x in ["embed", "moderation", "ocr", "audio", "transcribe"]):
+                            continue
+                        p_str, ctx, val = parse_model_stats(model_id)
+                        ctx_lim = m.get("max_context_length", 32768)
+                        ctx = f"{int(ctx_lim/1000)}K" if ctx_lim >= 1000 else str(ctx_lim)
+                        desc = m.get("description", "Mistral AI platform model.")
+                        desc += " | [FREE LIMITS]: 1 RPS, 500K TPM."
+                        res.append({
+                            "id": model_id, "name": format_model_name(model_id), 
+                            "params": p_str, "context": ctx, "score": val, 
+                            "lat": float('inf'), "stat": "Pending...", "prov": "mistral",
+                            "desc": desc
+                        })
+            except Exception: pass
+        return res
+
+    def fetch_codestral():
+        res = []
+        if "codestral" in keys:
+            try:
+                desc = "Mistral Codestral specialized coding API endpoint. | [FREE LIMITS]: 1 RPS."
+                res.append({
+                    "id": "codestral-latest", "name": "Codestral Latest", 
+                    "params": "22B", "context": "32K", "score": 22.0, 
+                    "lat": float('inf'), "stat": "Pending...", "prov": "codestral",
+                    "desc": desc
+                })
+                res.append({
+                    "id": "codestral-mamba-latest", "name": "Codestral Mamba Latest", 
+                    "params": "7B", "context": "256K", "score": 7.0, 
+                    "lat": float('inf'), "stat": "Pending...", "prov": "codestral",
+                    "desc": desc
+                })
+            except Exception: pass
+        return res
+
+    def fetch_cerebras():
+        res = []
+        if "cerebras" in keys:
+            try:
+                headers = {"Authorization": f"Bearer {keys['cerebras']}"}
+                r = requests.get("https://api.cerebras.ai/v1/models", headers=headers, timeout=15)
+                if r.status_code == 200:
+                    for m in r.json().get("data", []):
+                        model_id = m["id"]
+                        p_str, ctx, val = parse_model_stats(model_id)
+                        desc = "Official Cerebras Wafer-Scale Inference Endpoint. | [FREE LIMITS]: 30 RPM, 60K TPM."
+                        res.append({
+                            "id": model_id, "name": format_model_name(model_id), 
+                            "params": p_str, "context": ctx, "score": val, 
+                            "lat": float('inf'), "stat": "Pending...", "prov": "cerebras",
+                            "desc": desc
+                        })
+            except Exception: pass
+        return res
+
+    def fetch_groq():
+        res = []
+        if "groq" in keys:
+            try:
+                headers = {"Authorization": f"Bearer {keys['groq']}"}
+                r = requests.get("https://api.groq.com/openai/v1/models", headers=headers, timeout=15)
+                if r.status_code == 200:
+                    for m in r.json().get("data", []):
+                        model_id = m["id"]
+                        if "whisper" in model_id.lower() or "guard" in model_id.lower(): continue
+                        p_str, ctx, val = parse_model_stats(model_id)
+                        desc = "Official Groq LPU Ultra-fast Inference Engine. | [FREE LIMITS]: 30 RPM, 14,400 RPD."
+                        res.append({
+                            "id": model_id, "name": format_model_name(model_id), 
+                            "params": p_str, "context": ctx, "score": val, 
+                            "lat": float('inf'), "stat": "Pending...", "prov": "groq",
+                            "desc": desc
+                        })
+            except Exception: pass
+        return res
+
+    def fetch_cohere():
+        res = []
+        if "cohere" in keys:
+            try:
+                headers = {"Authorization": f"Bearer {keys['cohere']}"}
+                r = requests.get("https://api.cohere.com/v1/models", headers=headers, timeout=15)
+                if r.status_code == 200:
+                    for m in r.json().get("models", []):
+                        model_id = m.get("name", "")
+                        if not model_id or "embed" in model_id.lower() or "rerank" in model_id.lower(): continue
+                        p_str, ctx, val = parse_model_stats(model_id)
+                        desc = m.get("description", "Cohere Native API.")
+                        desc += " | [FREE LIMITS]: Trial Key = 40 RPM, 1K Calls/Month."
+                        res.append({
+                            "id": model_id, "name": format_model_name(model_id), 
+                            "params": p_str, "context": ctx, "score": val, 
+                            "lat": float('inf'), "stat": "Pending...", "prov": "cohere", "desc": desc
+                        })
+            except Exception: pass
+        return res
         
-    # 2. OPENROUTER
-    if "openrouter" in keys:
-        try:
-            headers = {"Authorization": f"Bearer {keys['openrouter']}"}
-            res = requests.get("https://openrouter.ai/api/v1/models", headers=headers, timeout=15)
-            if res.status_code == 200:
-                for m in res.json()["data"]:
-                    pricing = m.get("pricing") or {}
-                    try:
-                        if any(float(v or 0) > 0 for v in pricing.values()): continue
-                    except: pass
-                    
-                    p_str, _, val = parse_model_stats(m["id"])
-                    
-                    ctx_len = m.get("context_length", 8192)
-                    ctx = f"{ctx_len//1000}K" if ctx_len >= 1000 else str(ctx_len)
-                    
-                    name = m.get("name", m["id"].split('/')[-1])
-                    if len(name) > 22: name = name[:19] + "..."
-                    
-                    desc = m.get("description", "")
-                    if not desc: desc = "OpenRouter hosted API endpoint."
-                    
-                    models.append({
-                        "id": m["id"], "name": name, "params": p_str, 
-                        "context": ctx, "score": val, "lat": float('inf'), 
-                        "stat": "Pending...", "prov": "openrouter",
-                        "desc": desc
-                    })
-        except Exception: pass
-        
-    # 3. GOOGLE
-    if "google" in keys:
-        try:
-            res = requests.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={keys['google']}", timeout=15)
-            if res.status_code == 200:
-                for m in res.json().get("models", []):
-                    name_id = m["name"].replace("models/", "")
-                    p_str, ctx, val = parse_model_stats(name_id)
-                    ctx_lim = m.get("inputTokenLimit", 8192)
-                    ctx = f"{int(ctx_lim/1000)}K" if ctx_lim >= 1000 else str(ctx_lim)
-                    
-                    desc = m.get("description", "Official Google Gemini API endpoint.")
-                    if "flash" in name_id.lower():
-                        desc += " | [FREE LIMITS]: 15 RPM, 1M TPM, 1,500 RPD."
-                    elif "pro" in name_id.lower():
-                        desc += " | [FREE LIMITS]: 2 RPM, 32K TPM, 50 RPD."
-                        
-                    models.append({
-                        "id": name_id, "name": m.get("displayName", name_id), 
-                        "params": p_str, "context": ctx, "score": val, 
-                        "lat": float('inf'), "stat": "Pending...", "prov": "google",
-                        "desc": desc
-                    })
-        except Exception: pass
-        
-    # 4. MISTRAL
-    if "mistral" in keys:
-        try:
-            headers = {"Authorization": f"Bearer {keys['mistral']}"}
-            res = requests.get("https://api.mistral.ai/v1/models", headers=headers, timeout=15)
-            if res.status_code == 200:
-                for m in res.json().get("data", []):
-                    model_id = m["id"]
-                    if any(x in model_id.lower() for x in ["embed", "moderation", "ocr", "audio", "transcribe"]):
-                        continue
-                    p_str, ctx, val = parse_model_stats(model_id)
-                    ctx_lim = m.get("max_context_length", 32768)
-                    ctx = f"{int(ctx_lim/1000)}K" if ctx_lim >= 1000 else str(ctx_lim)
-                    
-                    desc = m.get("description", "Mistral AI platform model.")
-                    desc += " | [FREE LIMITS]: 1 RPS, 500K TPM."
-                        
-                    models.append({
-                        "id": model_id, "name": format_model_name(model_id), 
-                        "params": p_str, "context": ctx, "score": val, 
-                        "lat": float('inf'), "stat": "Pending...", "prov": "mistral",
-                        "desc": desc
-                    })
-        except Exception: pass
-            
-    # 5. CODESTRAL
-    if "codestral" in keys:
-        try:
-            desc = "Mistral Codestral specialized coding API endpoint. | [FREE LIMITS]: 1 RPS."
-            models.append({
-                "id": "codestral-latest", "name": "Codestral Latest", 
-                "params": "22B", "context": "32K", "score": 22.0, 
-                "lat": float('inf'), "stat": "Pending...", "prov": "codestral",
-                "desc": desc
-            })
-            models.append({
-                "id": "codestral-mamba-latest", "name": "Codestral Mamba Latest", 
-                "params": "7B", "context": "256K", "score": 7.0, 
-                "lat": float('inf'), "stat": "Pending...", "prov": "codestral",
-                "desc": desc
-            })
-        except Exception: pass
-            
-    # 6. CEREBRAS
-    if "cerebras" in keys:
-        try:
-            headers = {"Authorization": f"Bearer {keys['cerebras']}"}
-            res = requests.get("https://api.cerebras.ai/v1/models", headers=headers, timeout=15)
-            if res.status_code == 200:
-                for m in res.json().get("data", []):
-                    model_id = m["id"]
-                    
-                    p_str, ctx, val = parse_model_stats(model_id)
-                    
-                    desc = "Official Cerebras Wafer-Scale Inference Endpoint. | [FREE LIMITS]: 30 RPM, 60K TPM."
-                        
-                    models.append({
-                        "id": model_id, "name": format_model_name(model_id), 
-                        "params": p_str, "context": ctx, "score": val, 
-                        "lat": float('inf'), "stat": "Pending...", "prov": "cerebras",
-                        "desc": desc
-                    })
-        except Exception: pass
-            
-    # 7. GROQ
-    if "groq" in keys:
-        try:
-            headers = {"Authorization": f"Bearer {keys['groq']}"}
-            res = requests.get("https://api.groq.com/openai/v1/models", headers=headers, timeout=15)
-            if res.status_code == 200:
-                for m in res.json().get("data", []):
-                    model_id = m["id"]
-                    if "whisper" in model_id.lower() or "guard" in model_id.lower(): continue
-                    p_str, ctx, val = parse_model_stats(model_id)
-                    desc = "Official Groq LPU Ultra-fast Inference Engine. | [FREE LIMITS]: 30 RPM, 14,400 RPD."
-                    models.append({
-                        "id": model_id, "name": format_model_name(model_id), 
-                        "params": p_str, "context": ctx, "score": val, 
-                        "lat": float('inf'), "stat": "Pending...", "prov": "groq",
-                        "desc": desc
-                    })
-        except Exception: pass
-        
-    # 8. COHERE
-    if "cohere" in keys:
-        try:
-            headers = {"Authorization": f"Bearer {keys['cohere']}"}
-            res = requests.get("https://api.cohere.com/v1/models", headers=headers, timeout=15)
-            if res.status_code == 200:
-                for m in res.json().get("models", []):
-                    model_id = m.get("name", "")
-                    if not model_id or "embed" in model_id.lower() or "rerank" in model_id.lower(): continue
-                    p_str, ctx, val = parse_model_stats(model_id)
-                    desc = m.get("description", "Cohere Native API.")
-                    desc += " | [FREE LIMITS]: Trial Key = 40 RPM, 1K Calls/Month."
-                    models.append({
-                        "id": model_id, "name": format_model_name(model_id), 
-                        "params": p_str, "context": ctx, "score": val, 
-                        "lat": float('inf'), "stat": "Pending...", "prov": "cohere", "desc": desc
-                    })
-        except Exception: pass
+    tasks = [
+        fetch_nvidia, fetch_openrouter, fetch_google, fetch_mistral, 
+        fetch_codestral, fetch_cerebras, fetch_groq, fetch_cohere
+    ]
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        futures = {executor.submit(t): t for t in tasks}
+        for future in concurrent.futures.as_completed(futures):
+            models.extend(future.result())
             
     return models
 
