@@ -1,0 +1,23 @@
+{
+    "name": "tetralatency",
+    "version": "1.0.0",
+    "description": "A terminal UI (TUI) to benchmark real-time latency for OpenCode models across NVIDIA NIM, OpenRouter, Google API, Mistral, Codestral, Cerebras, Groq, and Cohere.",
+    "type": "module",
+    "bin": {
+        "tlate": "bin/tlate.js"
+    },
+    "scripts": {
+        "start": "node bin/tlate.js"
+    },
+    "keywords": [
+        "opencode",
+        "nvidia",
+        "nim",
+        "latency",
+        "openrouter",
+        "tetralatency",
+        "tetra"
+    ],
+    "author": "tetra",
+    "license": "MIT"
+}

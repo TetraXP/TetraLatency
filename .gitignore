@@ -1,0 +1,21 @@
+# Node.js
+node_modules/
+package-lock.json
+npm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+
+# OpenCode Secrets (just in case they were copied locally)
+auth.json
+.auth.json
+
+# OS files
+.DS_Store
