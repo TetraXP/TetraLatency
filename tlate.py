@@ -330,7 +330,12 @@ def measure_loop(models, keys):
                 elif res.status_code in (404, 401, 403, 400, 429, 502):
                     return m_id, None, "Fail"
                 else: return m_id, None, f"Err {res.status_code}"
-            except: return m_id, None, "Timeout"
+            except requests.exceptions.Timeout:
+                return m_id, None, "Timeout"
+            except requests.exceptions.RequestException as e:
+                return m_id, None, "Net Error"
+            except Exception:
+                return m_id, None, "Error"
     
     while True:
         with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_WORKERS) as executor:
