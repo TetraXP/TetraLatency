@@ -342,7 +342,8 @@ def set_model_in_opencode(m):
             data["provider"][oc_prov]["models"][model_id] = {
                 "name": m["name"],
                 "limit": {"context": ctx_lim, "output": 8192},
-                "modalities": {"input": in_mods, "output": ["text"]}
+                "modalities": {"input": in_mods, "output": ["text"]},
+                "tools": True
             }
             
             with open(oc_path, "w") as f:
