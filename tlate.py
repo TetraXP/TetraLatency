@@ -308,15 +308,64 @@ def get_models(keys):
             
     return models
 
-def set_model_in_opencode(model_id, prov):
-    full_model_id = f"{prov}/{model_id}"
-    paths = ["~/.config/opencode/opencode.json", "~/.opencode/oh-my-opencode.json"]
-    for path in paths:
-        p = os.path.expanduser(path)
-        if os.path.exists(p):
-            with open(p, "r") as f: content = f.read()
-            content = re.sub(r'("model":\s*)"[^"]+"', rf'\1"{full_model_id}"', content)
-            with open(p, "w") as f: f.write(content)
+def set_model_in_opencode(m):
+    model_id = m["id"]
+    prov = m["prov"]
+    
+    # Map providers to OpenCode's recognized identifiers
+    oc_prov = prov
+    if prov == "google": oc_prov = "gemini"
+    elif prov == "codestral": oc_prov = "mistral"
+    
+    full_model_id = f"{oc_prov}/{model_id}"
+    
+    # 1. Update global config and inject model so OpenCode doesn't throw ModelNotFoundError
+    oc_path = os.path.expanduser("~/.config/opencode/opencode.json")
+    if os.path.exists(oc_path):
+        try:
+            with open(oc_path, "r") as f:
+                data = json.load(f)
+                
+            data["model"] = full_model_id
+            
+            # Inject model dynamically
+            if "provider" not in data: data["provider"] = {}
+            if oc_prov not in data["provider"]: data["provider"][oc_prov] = {}
+            if "models" not in data["provider"][oc_prov]: data["provider"][oc_prov]["models"] = {}
+            
+            ctx_lim = 131000
+            if "K" in m["context"]: ctx_lim = int(float(m["context"].replace("K", "")) * 1000)
+            elif "M" in m["context"]: ctx_lim = int(float(m["context"].replace("M", "")) * 1000000)
+            
+            in_mods = ["text", "image", "video"] if "V" in m["mod"] else (["text", "image"] if "I" in m["mod"] else ["text"])
+            
+            data["provider"][oc_prov]["models"][model_id] = {
+                "name": m["name"],
+                "limit": {"context": ctx_lim, "output": 8192},
+                "modalities": {"input": in_mods, "output": ["text"]}
+            }
+            
+            with open(oc_path, "w") as f:
+                json.dump(data, f, indent=4)
+        except Exception: pass
+
+    # 2. Update agent configs safely without breaking plugin paths
+    omo_path = os.path.expanduser("~/.opencode/oh-my-opencode.json")
+    if os.path.exists(omo_path):
+        try:
+            with open(omo_path, "r") as f:
+                data = json.load(f)
+                
+            if "agents" in data:
+                for a in data["agents"].values():
+                    if isinstance(a, dict): a["model"] = full_model_id
+            if "categories" in data:
+                for c in data["categories"].values():
+                    if isinstance(c, dict): c["model"] = full_model_id
+                    
+            with open(omo_path, "w") as f:
+                json.dump(data, f, indent=2)
+        except Exception: pass
 
 LATENCIES = {} 
 STATUS = {}
@@ -609,10 +658,9 @@ def main(stdscr, models, keys):
             scroll_offset = 0
         elif key in (10, 13):
             if all_models and selected_idx < len(all_models):
-                sel_id = all_models[selected_idx]["id"]
-                sel_prov = all_models[selected_idx]["prov"]
-                set_model_in_opencode(sel_id, sel_prov)
-                status_msg = f"SUCCESS! [{sel_prov}/{sel_id}] Applied to Opencode"
+                sel_m = all_models[selected_idx]
+                set_model_in_opencode(sel_m)
+                status_msg = f"SUCCESS! [{sel_m['prov']}/{sel_m['id']}] Applied to Opencode"
         elif key == curses.KEY_MOUSE:
             try:
                 _, mx, my, _, bstate = curses.getmouse()
