@@ -108,7 +108,7 @@ def get_models(keys):
     if "nvidia" in keys:
         try:
             headers = {"Authorization": f"Bearer {keys['nvidia']}"}
-            res = requests.get("https://integrate.api.nvidia.com/v1/models", headers=headers, timeout=10)
+            res = requests.get("https://integrate.api.nvidia.com/v1/models", headers=headers, timeout=15)
             if res.status_code == 200:
                 for m in res.json()["data"]:
                     p_str, ctx, val = parse_model_stats(m["id"])
@@ -124,7 +124,7 @@ def get_models(keys):
     if "openrouter" in keys:
         try:
             headers = {"Authorization": f"Bearer {keys['openrouter']}"}
-            res = requests.get("https://openrouter.ai/api/v1/models", headers=headers, timeout=10)
+            res = requests.get("https://openrouter.ai/api/v1/models", headers=headers, timeout=15)
             if res.status_code == 200:
                 for m in res.json()["data"]:
                     pricing = m.get("pricing") or {}
@@ -154,7 +154,7 @@ def get_models(keys):
     # 3. GOOGLE
     if "google" in keys:
         try:
-            res = requests.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={keys['google']}", timeout=10)
+            res = requests.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={keys['google']}", timeout=15)
             if res.status_code == 200:
                 for m in res.json().get("models", []):
                     name_id = m["name"].replace("models/", "")
@@ -180,7 +180,7 @@ def get_models(keys):
     if "mistral" in keys:
         try:
             headers = {"Authorization": f"Bearer {keys['mistral']}"}
-            res = requests.get("https://api.mistral.ai/v1/models", headers=headers, timeout=10)
+            res = requests.get("https://api.mistral.ai/v1/models", headers=headers, timeout=15)
             if res.status_code == 200:
                 for m in res.json().get("data", []):
                     model_id = m["id"]
@@ -223,7 +223,7 @@ def get_models(keys):
     if "cerebras" in keys:
         try:
             headers = {"Authorization": f"Bearer {keys['cerebras']}"}
-            res = requests.get("https://api.cerebras.ai/v1/models", headers=headers, timeout=10)
+            res = requests.get("https://api.cerebras.ai/v1/models", headers=headers, timeout=15)
             if res.status_code == 200:
                 for m in res.json().get("data", []):
                     model_id = m["id"]
@@ -244,7 +244,7 @@ def get_models(keys):
     if "groq" in keys:
         try:
             headers = {"Authorization": f"Bearer {keys['groq']}"}
-            res = requests.get("https://api.groq.com/openai/v1/models", headers=headers, timeout=10)
+            res = requests.get("https://api.groq.com/openai/v1/models", headers=headers, timeout=15)
             if res.status_code == 200:
                 for m in res.json().get("data", []):
                     model_id = m["id"]
@@ -263,7 +263,7 @@ def get_models(keys):
     if "cohere" in keys:
         try:
             headers = {"Authorization": f"Bearer {keys['cohere']}"}
-            res = requests.get("https://api.cohere.com/v1/models", headers=headers, timeout=10)
+            res = requests.get("https://api.cohere.com/v1/models", headers=headers, timeout=15)
             if res.status_code == 200:
                 for m in res.json().get("models", []):
                     model_id = m.get("name", "")
@@ -323,7 +323,7 @@ def measure_loop(models, keys):
                 
             payload = {"model": m_id, "messages": [{"role": "user", "content": "Hi"}], "max_tokens": 1}
             try:
-                res = requests.post(pt, headers=headers, json=payload, timeout=8)
+                res = requests.post(pt, headers=headers, json=payload, timeout=15)
                 lat = (time.time() - start) * 1000
                 if res.status_code == 200:
                     return m_id, lat, "OK"
