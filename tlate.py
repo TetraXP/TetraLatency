@@ -324,7 +324,7 @@ LAST_PING = {}
 
 # Define how many seconds to wait before re-pinging a model based on provider limits
 PROVIDER_INTERVALS = {
-    "google": 3600,       # Ping at most once per hour to save ultra-low RPD (50)
+    "google": 86400,      # Ping at most once per 24 hours to deeply protect ultra-low RPD limits
     "cohere": 3600,       # Ping at most once per hour to save monthly Trial limit (1k/mo)
     "cerebras": 120,      # Generous RPM, wait 2 mins
     "groq": 120,          # High RPM, wait 2 mins
