@@ -334,7 +334,7 @@ PROVIDER_INTERVALS = {
     "openrouter": 60,
 }
 
-CACHE_FILE = os.path.expanduser("~/.local/share/opencode/tlate_cache.json")
+CACHE_FILE = os.path.expanduser("~/.local/share/tetralatency/tlate_cache.json")
 
 def load_cache():
     if os.path.exists(CACHE_FILE):
@@ -351,6 +351,7 @@ def load_cache():
 
 def save_cache():
     try:
+        os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
         lat_data = {k: list(v) for k, v in LATENCIES.items()}
         data = {
             "status": STATUS,
