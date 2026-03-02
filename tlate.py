@@ -109,6 +109,30 @@ def get_model_modality(model_id):
     if any(x in m for x in ["vision", "vl", "pixtral", "llava", "paligemma"]): return "T,I"
     return "T"
 
+def is_agent_capable(model_id, param_score):
+    """
+    Determines if a model is capable of parallel, robust tool-calling suitable for OpenCode.
+    Returns True if capable, False if known to fail or be chat-only.
+    """
+    m = model_id.lower()
+    
+    # Explicitly known to fail or be chat-only
+    if any(x in m for x in ["bielik", "liquid", "chat", "nemotron-mini", "gemma-2-9b", "gemma-2-27b", "llama-3.2-1b", "llama-3.2-3b"]):
+        return False
+        
+    # Explicitly known to be excellent at agents
+    if any(x in m for x in ["claude-3-5", "claude-3-opus", "gpt-4", "qwen2.5-coder-32b", "llama-3.3-70b", "gemini-1.5", "gemini-2.0"]):
+        return True
+        
+    # Small models generally struggle with parallel tool calls
+    if param_score > 0 and param_score < 30:
+        # Unless they are specifically trained for it like Codestral/Ministral or Qwen Coder
+        if "coder" in m or "codestral" in m: return True
+        return False
+        
+    # Assume 30B+ foundation models have acceptable tool capabilities by default
+    return True
+
 def get_models(keys):
     models = []
     
@@ -526,7 +550,7 @@ def main(stdscr, models, keys):
 
     status_msg = "Up/Down: Navigate | Enter: Set Opencode Model | F5: Force Ping | ESC: Quit"
 
-    id_w, pv_w, name_w, p_w, ctx_w, mod_w, lat_w, bar_w = 33, 6, 18, 10, 10, 6, 10, 14
+    id_w, pv_w, name_w, p_w, ctx_w, mod_w, agt_w, lat_w, bar_w = 33, 6, 18, 10, 10, 6, 6, 10, 14
 
     search_query = ""
 
@@ -567,7 +591,8 @@ def main(stdscr, models, keys):
                 "id": m_id, "name": m["name"], "params": m["params"], 
                 "context": m["context"], "score": m["score"], 
                 "lat": avg_lat, "stat": stat, "prov": m["prov"],
-                "desc": m["desc"], "mod": get_model_modality(m_id)
+                "desc": m["desc"], "mod": get_model_modality(m_id),
+                "agent": is_agent_capable(m_id, m["score"])
             }
             
             if search_query:
@@ -631,6 +656,7 @@ def main(stdscr, models, keys):
             if sort_col == "Name": return x["name"]
             if sort_col == "Prv": return x["prov"]
             if sort_col == "Inp": return x["mod"]
+            if sort_col == "Agt": return x["agent"]
             return x["id"]
             
         active_models.sort(key=s_key, reverse=sort_desc)
@@ -692,7 +718,8 @@ def main(stdscr, models, keys):
                         elif mx < cum_w + id_w + pv_w + name_w + p_w + 7: new_sort = "Params"
                         elif mx < cum_w + id_w + pv_w + name_w + p_w + ctx_w + 10: new_sort = "Context"
                         elif mx < cum_w + id_w + pv_w + name_w + p_w + ctx_w + mod_w + 13: new_sort = "Inp"
-                        elif mx < cum_w + id_w + pv_w + name_w + p_w + ctx_w + mod_w + lat_w + 16: new_sort = "Latency"
+                        elif mx < cum_w + id_w + pv_w + name_w + p_w + ctx_w + mod_w + agt_w + 16: new_sort = "Agt"
+                        elif mx < cum_w + id_w + pv_w + name_w + p_w + ctx_w + mod_w + agt_w + lat_w + 19: new_sort = "Latency"
                         else: new_sort = "Status"
                         
                         if sort_col == new_sort: sort_desc = not sort_desc
@@ -744,23 +771,30 @@ def main(stdscr, models, keys):
         # Draw Borders
         stdscr.hline(4, 0, curses.ACS_HLINE, width, curses.color_pair(1))
         
-        def f_head(col):
-            arr = "↓" if sort_desc else "↑"
-            text = f"{col} {arr}" if sort_col == col else col
-            w = {"ID": id_w, "Prv": pv_w, "Name": name_w, "Params": p_w, "Context": ctx_w, "Inp": mod_w, "Latency": lat_w, "Status": bar_w}.get(col, id_w)
-            return text.center(w)
-
-        # Header Columns
-        H_ID = f_head("ID").ljust(id_w)[:id_w]
-        H_PV = f_head("Prv").center(pv_w)[:pv_w]
-        H_NM = f_head("Name").ljust(name_w)[:name_w]
-        H_P  = f_head("Params").center(p_w)[:p_w]
-        H_C  = f_head("Context").center(ctx_w)[:ctx_w]
-        H_M  = f_head("Inp").center(mod_w)[:mod_w]
-        H_L  = f_head("Latency").rjust(lat_w)[:lat_w]
-        H_B  = f_head("Status").center(bar_w)[:bar_w]
+        # Draw Header
+        header_formats = [
+            (id_w, "ID", "ID"),
+            (pv_w, "Prv", "Prv"),
+            (name_w, "Name", "Name"),
+            (p_w, "Params", "Params"),
+            (ctx_w, "Context", "Context"),
+            (mod_w, "Inp", "Inp"),
+            (agt_w, "Agt", "Agt"),
+            (lat_w, "Latency", "Latency"),
+            (bar_w, "Status", "Status")
+        ]
         
-        header_str = f" {H_ID} │{H_PV}│ {H_NM} │ {H_P} │ {H_C} │ {H_M} │ {H_L} │ {H_B}"
+        # Build header string dynamically
+        head_strs = []
+        for w, col, text in header_formats:
+            arr = "↓" if sort_desc else "↑"
+            t = f"{text} {arr}" if sort_col == col else text
+            
+            if col in ["ID", "Name"]: head_strs.append(t.ljust(w)[:w])
+            elif col == "Latency": head_strs.append(t.rjust(w)[:w])
+            else: head_strs.append(t.center(w)[:w])
+            
+        header_str = f" {head_strs[0]} │{head_strs[1]}│ {head_strs[2]} │ {head_strs[3]} │ {head_strs[4]} │ {head_strs[5]} │ {head_strs[6]} │ {head_strs[7]} │ {head_strs[8]}"
         stdscr.addstr(5, 0, header_str.ljust(width)[:width], curses.color_pair(5) | curses.A_BOLD)
         
         stdscr.hline(6, 0, curses.ACS_HLINE, width, curses.color_pair(1))
@@ -781,12 +815,13 @@ def main(stdscr, models, keys):
             p_str = item["params"].center(p_w)[:p_w]
             c_str = item["context"].center(ctx_w)[:ctx_w]
             m_str = item["mod"].center(mod_w)[:mod_w]
+            a_str = ("Y" if item["agent"] else "N").center(agt_w)[:agt_w]
             
             px = item["prov"]
             p_code = "NV" if px == "nvidia" else ("GG" if px == "google" else ("MS" if px == "mistral" else ("CS" if px == "codestral" else ("CB" if px == "cerebras" else ("CO" if px == "cohere" else ("GQ" if px == "groq" else "OR"))))))
             pv_str = p_code.center(pv_w)[:pv_w]
             
-            row_str = f" {item['id'].ljust(id_w)[:id_w]} │{pv_str}│ {item['name'].ljust(name_w)[:name_w]} │ {p_str} │ {c_str} │ {m_str} │ {lat_str.rjust(lat_w)[:lat_w]} │ {bar}"
+            row_str = f" {item['id'].ljust(id_w)[:id_w]} │{pv_str}│ {item['name'].ljust(name_w)[:name_w]} │ {p_str} │ {c_str} │ {m_str} │ {a_str} │ {lat_str.rjust(lat_w)[:lat_w]} │ {bar}"
             row_str = row_str.ljust(width)[:width]
 
             if idx == selected_idx:
@@ -819,10 +854,18 @@ def main(stdscr, models, keys):
                 # Colorize the speed bar blocks to make it dynamic
                 if item['stat'] == "OK":
                     bar_c = curses.color_pair(2) if lat < 300 else (curses.color_pair(5) if lat < 800 else curses.color_pair(3))
-                    bar_start = 20 + id_w + pv_w + name_w + p_w + ctx_w + mod_w + lat_w
+                    bar_start = 22 + id_w + pv_w + name_w + p_w + ctx_w + mod_w + agt_w + lat_w
                     try: stdscr.chgat(7+i, bar_start, bar_w, bar_c | curses.A_BOLD)
                     except: pass
                     
+            # Formatting Modifiers
+            if item['stat'] == "OK":
+                stdscr.addstr(7+i, id_w + pv_w + name_w + p_w + ctx_w + 14, f" {m_str} ", curses.color_pair(2) | (curses.A_REVERSE if idx == selected_idx else 0))
+                
+                agt_c = curses.color_pair(2) if item["agent"] else curses.color_pair(1)
+                stdscr.addstr(7+i, id_w + pv_w + name_w + p_w + ctx_w + mod_w + 17, f" {a_str.strip()} ", agt_c | (curses.A_REVERSE if idx == selected_idx else 0))
+                
+                stdscr.addstr(7+i, id_w + pv_w + name_w + p_w + ctx_w + mod_w + agt_w + 20, lat_str, c | (curses.A_REVERSE if idx == selected_idx else 0))
         # Draw Info Panel
         info_y = height - info_height - 1
         try:
