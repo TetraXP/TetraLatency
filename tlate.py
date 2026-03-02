@@ -854,7 +854,7 @@ def main(stdscr, models, keys):
                 # Colorize the speed bar blocks to make it dynamic
                 if item['stat'] == "OK":
                     bar_c = curses.color_pair(2) if lat < 300 else (curses.color_pair(5) if lat < 800 else curses.color_pair(3))
-                    bar_start = 22 + id_w + pv_w + name_w + p_w + ctx_w + mod_w + agt_w + lat_w
+                    bar_start = 25 + id_w + pv_w + name_w + p_w + ctx_w + mod_w + agt_w + lat_w
                     try: stdscr.chgat(7+i, bar_start, bar_w, bar_c | curses.A_BOLD)
                     except: pass
                     
@@ -865,7 +865,7 @@ def main(stdscr, models, keys):
                 agt_c = curses.color_pair(2) if item["agent"] else curses.color_pair(1)
                 stdscr.addstr(7+i, id_w + pv_w + name_w + p_w + ctx_w + mod_w + 17, f" {a_str.strip()} ", agt_c | (curses.A_REVERSE if idx == selected_idx else 0))
                 
-                stdscr.addstr(7+i, id_w + pv_w + name_w + p_w + ctx_w + mod_w + agt_w + 20, lat_str, c | (curses.A_REVERSE if idx == selected_idx else 0))
+                stdscr.addstr(7+i, id_w + pv_w + name_w + p_w + ctx_w + mod_w + agt_w + 20, f" {lat_str.rjust(lat_w)[:lat_w]} ", c | (curses.A_REVERSE if idx == selected_idx else 0))
         # Draw Info Panel
         info_y = height - info_height - 1
         try:
