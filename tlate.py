@@ -557,7 +557,7 @@ def main(stdscr, models, keys):
     f_prv_opts = ["ALL", "NV", "OR", "GG", "MS", "CS", "CB", "CO", "GQ"]
     f_par_opts = ["ALL", "<10B", "10B-30B", "30B-70B", ">70B"]
     f_ctx_opts = ["ALL", ">=32K", ">=128K"]
-    f_agt_opts = ["ALL", "Y", "N"]
+    f_agt_opts = ["Y", "ALL", "N"]
     f_lat_opts = ["ALL", "<300ms", "<800ms"]
     f_err_opts = ["Hide", "Show"]
 
@@ -630,8 +630,8 @@ def main(stdscr, models, keys):
                 
             agt_opt = f_agt_opts[f_agt_idx]
             if agt_opt != "ALL":
-                if agt_opt == "Y" and not m["agent"]: skip = True
-                elif agt_opt == "N" and m["agent"]: skip = True
+                if agt_opt == "Y" and not model_dict["agent"]: skip = True
+                elif agt_opt == "N" and model_dict["agent"]: skip = True
                 
             lat_opt = f_lat_opts[f_lat_idx]
             if lat_opt != "ALL" and avg_lat != float('inf'):
