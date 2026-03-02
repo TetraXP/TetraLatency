@@ -557,10 +557,11 @@ def main(stdscr, models, keys):
     f_prv_opts = ["ALL", "NV", "OR", "GG", "MS", "CS", "CB", "CO", "GQ"]
     f_par_opts = ["ALL", "<10B", "10B-30B", "30B-70B", ">70B"]
     f_ctx_opts = ["ALL", ">=32K", ">=128K"]
+    f_agt_opts = ["ALL", "Y", "N"]
     f_lat_opts = ["ALL", "<300ms", "<800ms"]
     f_err_opts = ["Hide", "Show"]
 
-    f_prv_idx, f_par_idx, f_ctx_idx, f_lat_idx, f_err_idx = 0, 0, 0, 0, 0
+    f_prv_idx, f_par_idx, f_ctx_idx, f_agt_idx, f_lat_idx, f_err_idx = 0, 0, 0, 0, 0, 0
 
     while True:
         height, width = stdscr.getmaxyx()
@@ -626,6 +627,11 @@ def main(stdscr, models, keys):
                 c_val = float(m["context"][:-1])
                 if ctx_opt == ">=32K" and c_val < 32: skip = True
                 elif ctx_opt == ">=128K" and c_val < 128: skip = True
+                
+            agt_opt = f_agt_opts[f_agt_idx]
+            if agt_opt != "ALL":
+                if agt_opt == "Y" and not m["agent"]: skip = True
+                elif agt_opt == "N" and m["agent"]: skip = True
                 
             lat_opt = f_lat_opts[f_lat_idx]
             if lat_opt != "ALL" and avg_lat != float('inf'):
@@ -696,6 +702,7 @@ def main(stdscr, models, keys):
                         s_prv = f" [ Prv: {f_prv_opts[f_prv_idx]} ] "
                         s_par = f" [ Params: {f_par_opts[f_par_idx]} ] "
                         s_ctx = f" [ Ctx: {f_ctx_opts[f_ctx_idx]} ] "
+                        s_agt = f" [ Agt: {f_agt_opts[f_agt_idx]} ] "
                         s_lat = f" [ Lat: {f_lat_opts[f_lat_idx]} ] "
                         s_err = f" [ Err: {f_err_opts[f_err_idx]} ] "
                         lx = 10
@@ -705,6 +712,8 @@ def main(stdscr, models, keys):
                         lx += len(s_par) + 1
                         if lx <= mx < lx + len(s_ctx): f_ctx_idx = (f_ctx_idx+1)%len(f_ctx_opts)
                         lx += len(s_ctx) + 1
+                        if lx <= mx < lx + len(s_agt): f_agt_idx = (f_agt_idx+1)%len(f_agt_opts)
+                        lx += len(s_agt) + 1
                         if lx <= mx < lx + len(s_lat): f_lat_idx = (f_lat_idx+1)%len(f_lat_opts)
                         lx += len(s_lat) + 1
                         if lx <= mx < lx + len(s_err): f_err_idx = (f_err_idx+1)%len(f_err_opts)
@@ -754,6 +763,7 @@ def main(stdscr, models, keys):
         s_prv = f" [ Prv: {f_prv_opts[f_prv_idx]} ] "
         s_par = f" [ Params: {f_par_opts[f_par_idx]} ] "
         s_ctx = f" [ Ctx: {f_ctx_opts[f_ctx_idx]} ] "
+        s_agt = f" [ Agt: {f_agt_opts[f_agt_idx]} ] "
         s_lat = f" [ Lat: {f_lat_opts[f_lat_idx]} ] "
         s_err = f" [ Err: {f_err_opts[f_err_idx]} ] "
         
@@ -764,6 +774,8 @@ def main(stdscr, models, keys):
         lx += len(s_par) + 1
         stdscr.addstr(3, lx, s_ctx, curses.color_pair(4) | curses.A_BOLD)
         lx += len(s_ctx) + 1
+        stdscr.addstr(3, lx, s_agt, curses.color_pair(4) | curses.A_BOLD)
+        lx += len(s_agt) + 1
         stdscr.addstr(3, lx, s_lat, curses.color_pair(4) | curses.A_BOLD)
         lx += len(s_lat) + 1
         stdscr.addstr(3, lx, s_err, curses.color_pair(4) | curses.A_BOLD)
@@ -860,12 +872,15 @@ def main(stdscr, models, keys):
                     
             # Formatting Modifiers
             if item['stat'] == "OK":
-                stdscr.addstr(7+i, id_w + pv_w + name_w + p_w + ctx_w + 14, f" {m_str} ", curses.color_pair(2) | (curses.A_REVERSE if idx == selected_idx else 0))
+                try: stdscr.chgat(7+i, id_w + pv_w + name_w + p_w + ctx_w + 14, mod_w, curses.color_pair(2) | (curses.A_REVERSE if idx == selected_idx else 0))
+                except: pass
                 
                 agt_c = curses.color_pair(2) if item["agent"] else curses.color_pair(1)
-                stdscr.addstr(7+i, id_w + pv_w + name_w + p_w + ctx_w + mod_w + 17, f" {a_str.strip()} ", agt_c | (curses.A_REVERSE if idx == selected_idx else 0))
+                try: stdscr.chgat(7+i, id_w + pv_w + name_w + p_w + ctx_w + mod_w + 17, agt_w, agt_c | (curses.A_REVERSE if idx == selected_idx else 0))
+                except: pass
                 
-                stdscr.addstr(7+i, id_w + pv_w + name_w + p_w + ctx_w + mod_w + agt_w + 20, f" {lat_str.rjust(lat_w)[:lat_w]} ", c | (curses.A_REVERSE if idx == selected_idx else 0))
+                try: stdscr.chgat(7+i, id_w + pv_w + name_w + p_w + ctx_w + mod_w + agt_w + 20, lat_w, c | (curses.A_REVERSE if idx == selected_idx else 0))
+                except: pass
         # Draw Info Panel
         info_y = height - info_height - 1
         try:
