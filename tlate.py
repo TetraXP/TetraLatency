@@ -355,6 +355,17 @@ def set_model_in_opencode(m):
             # Inject model dynamically
             if "provider" not in data: data["provider"] = {}
             if oc_prov not in data["provider"]: data["provider"][oc_prov] = {}
+            
+            if oc_prov == "groq":
+                data["provider"][oc_prov]["type"] = "openai"
+                data["provider"][oc_prov]["url"] = "https://api.groq.com/openai/v1"
+            elif oc_prov == "cerebras":
+                data["provider"][oc_prov]["type"] = "openai"
+                data["provider"][oc_prov]["url"] = "https://api.cerebras.ai/v1"
+            elif oc_prov == "codestral":
+                data["provider"][oc_prov]["type"] = "openai"
+                data["provider"][oc_prov]["url"] = "https://codestral.mistral.ai/v1"
+            
             if "models" not in data["provider"][oc_prov]: data["provider"][oc_prov]["models"] = {}
             
             ctx_lim = 131000
@@ -391,6 +402,11 @@ def set_model_in_opencode(m):
             with open(omo_path, "w") as f:
                 json.dump(data, f, indent=2)
         except Exception: pass
+        
+    try:
+        cache_rm = os.path.expanduser("~/.cache/oh-my-opencode/provider-models.json")
+        if os.path.exists(cache_rm): os.remove(cache_rm)
+    except: pass
 
 LATENCIES = {} 
 STATUS = {}
